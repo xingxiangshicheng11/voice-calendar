@@ -89,7 +89,8 @@ function saveEvents() {
 }
 
 function addEvent(title, dateStr) {
-  events.push({ id: Date.now(), title: title.trim(), dateStr: dateStr });
+  title = title.replace(/[，。！？、：；,\.!\?:;'"]+$/g, '').trim();
+  events.push({ id: Date.now(), title: title, dateStr: dateStr });
   saveEvents();
   renderCalendar();
   renderEventList();
@@ -104,6 +105,24 @@ function deleteEvent(eventId) {
   renderEventList();
   speak(`已删除事件`);
   showFeedback(`🗑️ 已删除事件`);
+}
+
+function updateEvent(eventId, newDateStr) {
+  const event = events.find(e => e.id === eventId);
+  if (!event) return;
+  const oldTitle = event.title;
+  const oldDate = event.dateStr;
+  event.dateStr = newDateStr;
+  saveEvents();
+  renderCalendar();
+  renderEventList();
+  speak(`已将${oldTitle}改期`);
+  showFeedback(`✅ 已修改：${oldTitle}（${oldDate} → ${newDateStr}）`);
+}
+
+function isValidDate(year, month, day) {
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 function renderEventList() {
@@ -406,12 +425,12 @@ function parseVoiceCommand(text) {
   console.log("识别到:", text);
 
   // 添加纪念日
-  const memorialMatch = text.match(/(记住|添加|设置)(\d{1,2})月(\d{1,2})日(?:是)?(.*?)(生日|纪念日)/);
+  const memorialMatch = text.match(/(记住|添加|设置)(?:(\d{4})年)?(\d{1,2})月(\d{1,2})(?:日|号)(?:是)?(.*?)(生日|纪念日)/);
   if (memorialMatch) {
-    const month = memorialMatch[2].padStart(2, '0');
-    const day = memorialMatch[3].padStart(2, '0');
-    const suffix = memorialMatch[5];
-    let name = memorialMatch[4] || suffix;
+    const month = memorialMatch[3].padStart(2, '0');
+    const day = memorialMatch[4].padStart(2, '0');
+    const suffix = memorialMatch[6];
+    let name = memorialMatch[5] || suffix;
     let icon = suffix === '生日' ? '🎂' : '💝';
     addMemorialDay(name, `${month}-${day}`, icon);
     return;
@@ -440,11 +459,12 @@ function parseVoiceCommand(text) {
         return;
       }
     }
-    const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+    const dateMatch = text.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})(?:日|号)?/);
     if (dateMatch) {
-      const month = dateMatch[1].padStart(2, '0');
-      const day = dateMatch[2].padStart(2, '0');
-      const targetDate = `${currentYear}-${month}-${day}`;
+      const year = dateMatch[1] || currentYear;
+      const month = dateMatch[2].padStart(2, '0');
+      const day = dateMatch[3].padStart(2, '0');
+      const targetDate = `${year}-${month}-${day}`;
       const toDelete = events.filter(e => e.dateStr === targetDate);
       toDelete.forEach(e => deleteEvent(e.id));
       return;
@@ -515,6 +535,66 @@ function parseVoiceCommand(text) {
     }
     return;
   }
+
+  // 修改事件
+  const modifyMatch = text.match(/把(.+?)改为(.+)/) || text.match(/(.+?)改到(.+)/) || text.match(/(.+?)改成(.+)/);
+  if (modifyMatch) {
+    let sourcePart = modifyMatch[1].trim();
+    if (sourcePart.startsWith('把')) sourcePart = sourcePart.slice(1).trim();
+    const targetPart = modifyMatch[2].trim();
+
+    const sourceInfo = parseDateFromText(sourcePart);
+    const targetInfo = parseDateFromText(targetPart);
+
+    if (!sourceInfo) {
+      speak('请说"把明天的会议改到4月3号"');
+      return;
+    }
+    if (!targetInfo) {
+      speak('请说"把明天的会议改到4月3号"');
+      return;
+    }
+
+    const sourceTitle = sourceInfo.rest;
+    const targetDateStr = targetInfo.dateStr;
+
+    const [y, m, d] = targetDateStr.split('-').map(Number);
+    if (!isValidDate(y, m, d)) {
+      speak('这个日期不存在，请重新确认');
+      return;
+    }
+
+    if (!sourceTitle) {
+      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
+      if (dayEvents.length === 0) {
+        speak(`那天没有事件，试试说"把明天的吃饭改到4月3号"`);
+        return;
+      }
+      if (dayEvents.length > 1) {
+        speak(`那天有${dayEvents.length}个事件，请说明要改哪个`);
+        return;
+      }
+      updateEvent(dayEvents[0].id, targetDateStr);
+      return;
+    }
+
+    let matched = events.find(e => e.dateStr === sourceInfo.dateStr && e.title === sourceTitle);
+    if (!matched) {
+      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
+      if (dayEvents.length === 1) {
+        matched = dayEvents[0];
+      } else if (dayEvents.length > 1) {
+        speak(`那天有${dayEvents.length}个事件，请说清楚要改哪个`);
+        return;
+      } else {
+        speak(`没找到${sourceTitle}，试试说"把明天的吃饭改到4月3号"`);
+        return;
+      }
+    }
+    updateEvent(matched.id, targetDateStr);
+    return;
+  }
+
   // 添加事件
   let dateStr = null;
   let title = text;
@@ -546,12 +626,13 @@ function parseVoiceCommand(text) {
       title = text.replace(/农历(?:的)?[正一二三四五六七八九十冬腊]+月初?[一二三四五六七八九十廿三十]+/, '').trim();
     }
   }
-  // X月X日
+  // X月X日 / X月X号
   else {
-    const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+    const dateMatch = text.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})(?:日|号)?/);
     if (dateMatch) {
-      dateStr = `${currentYear}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
-      title = text.replace(/\d{1,2}月\d{1,2}日/, '').trim();
+      const year = dateMatch[1] || currentYear;
+      dateStr = `${year}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+      title = text.replace(/(?:\d{4}年)?\d{1,2}月\d{1,2}(?:日|号)?/, '').trim();
     }
   }
 
@@ -784,15 +865,16 @@ function cnNumToNumber(str) {
 
 function parseLunarDateFromText(text) {
   if (!text.includes('农历')) return null;
-  const match = text.match(/农历(?:的)?([正一二三四五六七八九十冬腊]+)月(初?[一二三四五六七八九十廿三十]+)/);
+  const match = text.match(/(?:(\d{4})年)?农历(?:的)?([正一二三四五六七八九十冬腊]+)月(初?[一二三四五六七八九十廿三十]+)/);
   if (!match) return null;
-  const monthNum = cnNumToNumber(match[1]);
-  let dayRaw = match[2];
+  const monthNum = cnNumToNumber(match[2]);
+  let dayRaw = match[3];
   if (dayRaw.startsWith('初')) dayRaw = dayRaw.slice(1);
   const dayNum = cnNumToNumber(dayRaw);
   if (!monthNum || !dayNum) return null;
   try {
-    const year = new Date().getFullYear();
+    const specifiedYear = match[1] ? parseInt(match[1], 10) : null;
+    const year = specifiedYear || new Date().getFullYear();
     const lunar = Lunar.fromYmd(year, monthNum, dayNum);
     const solar = lunar.getSolar();
     const solarDate = new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay());
@@ -814,4 +896,95 @@ function parseLunarDateFromText(text) {
     console.error('农历转换失败:', e);
     return null;
   }
+}
+
+function getYearFromMatch(match) {
+  return match[1] ? parseInt(match[1], 10) : new Date().getFullYear();
+}
+
+function parseDateFromText(text) {
+  if (!text) return null;
+
+  // 农历
+  if (text.includes('农历')) {
+    const lunarInfo = parseLunarDateFromText(text);
+    if (lunarInfo) {
+      const regex = /(?:\d{4}年)?农历(?:的)?[正一二三四五六七八九十冬腊]+月初?[一二三四五六七八九十廿三十]+/;
+      return { dateStr: lunarInfo.dateStr, rest: text.replace(regex, '').replace(/^的/, '').trim() };
+    }
+  }
+
+  // 下周一~日
+  let match = text.match(/下(周一|周二|周三|周四|周五|周六|周日)/);
+  if (match) {
+    const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0 };
+    const today = new Date();
+    let daysToAdd = weekMap[match[1]] - today.getDay();
+    if (daysToAdd <= 0) daysToAdd += 7;
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysToAdd);
+    const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+    return { dateStr, rest: text.replace(/下[周一二三四五六日](.*?)/, '').replace(/^的/, '').trim() };
+  }
+
+  // 明天
+  if (text.includes('明天')) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    return { dateStr, rest: text.replace(/明天/, '').replace(/^的/, '').trim() };
+  }
+
+  // 今天
+  if (text.includes('今天')) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return { dateStr, rest: text.replace(/今天/, '').replace(/^的/, '').trim() };
+  }
+
+  // X月X日 / X月X号（数字）
+  match = text.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})(?:日|号)?/);
+  if (match) {
+    const year = getYearFromMatch(match);
+    const dateStr = `${year}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    return { dateStr, rest: text.replace(match[0], '').replace(/^的/, '').trim() };
+  }
+
+  // X月X号（中文数字）
+  match = text.match(/(?:(\d{4})年)?([一二三四五六七八九十十一十二]+)月([一二三四五六七八九十廿三十]+)(?:日|号)?/);
+  if (match) {
+    const month = cnNumToNumber(match[2]);
+    const day = cnNumToNumber(match[3]);
+    if (month && day) {
+      const year = getYearFromMatch(match);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { dateStr, rest: text.replace(match[0], '').replace(/^的/, '').trim() };
+    }
+  }
+
+  // X月X号（中文月 + 数字日），如 "四月3号"
+  match = text.match(/(?:(\d{4})年)?([一二三四五六七八九十十一十二]+)月(\d{1,2})(?:日|号)?/);
+  if (match) {
+    const month = cnNumToNumber(match[2]);
+    const day = parseInt(match[3], 10);
+    if (month && day) {
+      const year = getYearFromMatch(match);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { dateStr, rest: text.replace(match[0], '').replace(/^的/, '').trim() };
+    }
+  }
+
+  // X月X号（数字月 + 中文日），如 "4月三号"
+  match = text.match(/(?:(\d{4})年)?(\d{1,2})月([一二三四五六七八九十廿三十]+)(?:日|号)?/);
+  if (match) {
+    const month = parseInt(match[2], 10);
+    const day = cnNumToNumber(match[3]);
+    if (month && day) {
+      const year = getYearFromMatch(match);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return { dateStr, rest: text.replace(match[0], '').replace(/^的/, '').trim() };
+    }
+  }
+
+  return null;
 }
