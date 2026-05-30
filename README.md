@@ -21,18 +21,40 @@
 
 ## 🚀 快速开始
 
-直接在浏览器中打开 `index.html` 即可运行，无需构建工具或依赖安装。
+### 1. 启动本地服务器
+
+语音识别功能依赖本地 HTTP 服务（不能直接用浏览器打开 `index.html` 文件），任选一种方式：
+
+```bash
+# 方式一：Python（推荐）
+python -m http.server 8080
+
+# 方式二：VS Code Live Server 插件
+# 安装 Live Server 后，右键 index.html → Open with Live Server
+```
+
+### 2. 打开浏览器
+
+在浏览器地址栏访问 `http://localhost:8080`（或 Live Server 提示的地址）。
+
+### 3. 浏览器兼容性
+
+| 浏览器 | 语音识别 | 说明 |
+|--------|---------|------|
+| Microsoft Edge | ✅ 正常 | **推荐**，语音识别走 Azure 服务，在中国大陆可用 |
+| Google Chrome | ⚠️ 需 VPN | 语音识别依赖 Google 服务，在中国大陆需要 VPN |
+| Firefox / Safari | ❌ 不支持 | Web Speech API 支持有限 |
+
+> **提示**：如果语音识别失败并报错 `network`，说明浏览器无法连接语音服务器，请切换到 Edge 浏览器。
 
 ## 🗂️ 项目结构
 
 ```
 voice-calendar/
-├── index.html        # 主页面
-├── css/
-│   └── style.css     # 样式文件
-├── js/
-│   └── app.js        # 主要逻辑
-└── README.md         # 项目文档
+├── index.html
+├── style.css
+├── script.js
+└── README.md
 ```
 
 ## 🧩 技术架构
