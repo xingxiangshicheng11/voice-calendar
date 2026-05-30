@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语音日历助手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="calendar-app">
+    <!-- 头部区域 -->
+    <div class="voice-header">
+      <h1>🎙️ 语音日历助手</h1>
+      <button id="micButton">🎤 语音输入</button>
+    </div>
+
+    <!-- 日历区域 -->
+    <div class="calendar-view">
+      <div class="calendar-header">
+        <button id="prevMonth">◀</button>
+        <h2 id="monthYear">2026年5月</h2>
+        <button id="nextMonth">▶</button>
+      </div>
+      <div class="weekdays">
+        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+      </div>
+      <div id="calendarDays" class="calendar-days">
+        <!-- 日历格子会通过JS动态生成 -->
+      </div>
+    </div>
+
+    <!-- 事件列表区域 -->
+    <div class="events-panel">
+      <h3>事件列表</h3>
+      <div id="eventList"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
