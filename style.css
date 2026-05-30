@@ -1,0 +1,821 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #0cdcaf 0%, #0cdcaf 100%);
+  font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.calendar-app {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(190, 18, 18, 0.25);
+}
+
+.calendar-app.celebration-mode {
+  box-shadow: 0 0 30px rgba(255, 105, 180, 0.5);
+}
+
+.voice-header {
+  background: linear-gradient(135deg, #1e2b3c 0%, #0f1a24 100%);
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+/* 只给语音头部的文字设置白色 */
+.voice-header .title h1 {
+  color: white;
+}
+
+.voice-header .subtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.voice-header .voice-status {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+}
+
+.voice-header .mic-btn {
+  color: white;
+}
+
+.title h1 {
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-top: 5px;
+}
+
+.voice-panel {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.mic-btn {
+  background: #0cdcaf;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mic-btn:hover {
+  transform: scale(1.02);
+  background: #0cdcaf;
+}
+
+.mic-btn.listening {
+  background: #0cdcaf;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.voice-status {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+}
+
+.main-dashboard {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.calendar-view {
+  flex: 2;
+  min-width: 400px;
+  padding: 24px;
+  background: white;
+}
+
+.events-panel {
+  flex: 1.2;
+  min-width: 300px;
+  background: #f8f9fa;
+  padding: 24px;
+  border-left: 1px solid #e9ecef;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.nav-btn {
+  background: #f1f3f5;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.nav-btn:hover {
+  background: #e9ecef;
+}
+
+.month-year {
+  font-size: 1.6rem;
+  color: #2c3e50;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 600;
+  color: #6c757d;
+  margin-bottom: 10px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.day-cell {
+  aspect-ratio: 1 / 1;
+  background: white;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #e9ecef;
+  position: relative;
+}
+
+.day-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.day-cell.today {
+  background: #fff3e0;
+  border: 2px solid #ffb347;
+}
+
+.day-cell.has-event {
+  background: #e3f2fd;
+}
+
+.day-cell.memorial-day {
+  background: linear-gradient(135deg, #FFF0F5 0%, #FFE4E1 100%);
+  border: 2px solid #ffb6c1;
+}
+
+.day-cell.holiday {
+  background: #e8f5e9;
+  border: 1px solid #81c784;
+}
+
+.day-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.holiday-name {
+  font-size: 0.55rem;
+  background: #4caf50;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 20px;
+  margin-top: 2px;
+}
+
+.memorial-icon {
+  font-size: 1.2rem;
+  margin-top: 2px;
+}
+
+.memorial-name {
+  font-size: 0.6rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 6px;
+  border-radius: 20px;
+  margin-top: 2px;
+}
+
+.event-dot {
+  font-size: 0.7rem;
+  color: #ff6b6b;
+  margin-top: 2px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  padding-left: 12px;
+  border-left: 4px solid #0cdcaf;
+}
+
+.event-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.event-item {
+  background: white;
+  border-radius: 20px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.event-date {
+  font-size: 0.7rem;
+  color: #ff6b6b;
+}
+
+.event-title {
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.delete-event {
+  background: #fff0f0;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 30px;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.holiday-section {
+  margin-top: 15px;
+}
+
+.holiday-list {
+  background: white;
+  border-radius: 16px;
+  padding: 10px;
+  font-size: 0.8rem;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.holiday-item {
+  display: inline-block;
+  background: #e8f5e9;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin: 3px;
+  font-size: 0.75rem;
+}
+
+.memorial-section {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+.memorial-list {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.memorial-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 30px;
+  margin-bottom: 5px;
+}
+
+.memorial-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.delete-memorial {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.add-memorial-form {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.memorial-input {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 30px;
+  font-size: 0.75rem;
+}
+
+.date-input {
+  width: 70px;
+}
+
+.icon-input {
+  width: 50px;
+}
+
+.add-memorial-btn {
+  background: #8dedd8;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 30px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.add-memorial-btn:hover {
+  background: #0cdcaf;
+}
+
+.feedback-area {
+  background: white;
+  border-radius: 20px;
+  padding: 12px;
+  margin-top: 15px;
+  font-size: 0.8rem;
+  border-left: 4px solid #0cdcaf;
+}
+
+.empty-tip {
+  color: #adb5bd;
+  text-align: center;
+  padding: 15px;
+  font-size: 0.8rem;
+}
+
+.hint {
+  font-size: 0.65rem;
+  font-weight: normal;
+  color: #6c757d;
+}
+
+/* 日期选择器样式 */
+.date-select-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.date-picker-input {
+  cursor: pointer;
+  background: white;
+  width: 100%;
+}
+
+.date-picker-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 280px;
+  margin-top: 5px;
+}
+
+.date-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.date-picker-header button {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.date-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.7rem;
+  color: #888;
+  margin-bottom: 5px;
+}
+
+.date-picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.picker-day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: 0.1s;
+}
+
+.picker-day:hover {
+  background: #ffb347;
+  color: white;
+}
+
+.picker-day.selected {
+  background: #ff6b6b;
+  color: white;
+}
+
+/* 图标选择器样式 */
+.icon-select-wrapper {
+  position: relative;
+}
+
+.selected-icon {
+  width: 50px;
+  height: 50px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: 0.1s;
+}
+
+.selected-icon:hover {
+  border-color: #ffb347;
+  transform: scale(1.05);
+}
+
+.icon-picker-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 260px;
+  margin-top: 5px;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.icon-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: 0.1s;
+  font-size: 0.85rem;
+}
+
+.icon-option:hover {
+  background: #f0f0f0;
+}
+
+.icon-option.selected {
+  background: #ffb347;
+  color: white;
+}
+
+.name-input {
+  flex: 2;
+  min-width: 100px;
+}
+
+/* ==================== 纪念日卡片新样式 ==================== */
+.memorial-section {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+.memorial-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.memorial-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 8px 15px;
+  border-radius: 30px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.memorial-info {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.memorial-info span:first-child {
+  font-size: 1.2rem;
+}
+
+.delete-memorial {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: 0.1s;
+}
+
+.delete-memorial:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* 添加纪念日卡片 */
+.add-memorial-card {
+  background: white;
+  border-radius: 24px;
+  padding: 18px;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.form-label {
+  width: 50px;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.form-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 30px;
+  font-size: 0.9rem;
+  transition: 0.2s;
+  background: #fafafa;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #ffb347;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.1);
+}
+
+/* 日期触发器 */
+.date-select-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.date-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 30px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.date-trigger:hover {
+  border-color: #ffb347;
+  background: white;
+}
+
+.date-icon {
+  font-size: 1rem;
+}
+
+.date-text {
+  flex: 1;
+  text-align: left;
+  margin-left: 10px;
+  color: #666;
+}
+
+.date-arrow {
+  font-size: 0.7rem;
+  color: #999;
+}
+
+/* 图标网格选择器 */
+.icon-grid-selector {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.icon-option-btn {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 30px;
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-option-btn:hover {
+  background: #0cdcaf;
+  border-color: #0cdcaf;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.icon-option-btn.selected {
+  background: #0cdcaf;
+  border-color: #0cdcaf;
+  color: white;
+}
+
+/* 添加按钮 */
+.add-memorial-btn-new {
+  width: 100%;
+  background: linear-gradient(100deg, #0cdcaf 0%);
+  border: none;
+  padding: 14px;
+  border-radius: 40px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-top: 8px;
+}
+
+.add-memorial-btn-new:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 5px #058065;
+}
+
+/* 日期选择器弹窗 */
+.date-picker-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 300px;
+  margin-top: 8px;
+}
+
+.date-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.picker-nav {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.picker-nav:hover {
+  background: #f0f0f0;
+}
+
+.date-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.date-picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.picker-day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: 0.1s;
+}
+
+.picker-day:hover {
+  background: #ffb347;
+  color: white;
+}
+
+.picker-day.selected {
+  background: #ff6b6b;
+  color: white;
+}
+
+/* 停止按钮样式 */
+.stop-btn {
+  background: #e74c3c;
+}
+
+.stop-btn:hover {
+  background: #c0392b;
+}
+
+.mic-btn.listening {
+  background: #e74c3c;
+  animation: pulse 1s infinite;
+}
