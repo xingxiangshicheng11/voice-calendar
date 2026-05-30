@@ -199,6 +199,7 @@ function renderMemorialList() {
 function renderCalendar() {
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const startWeekday = getFirstDayWeekday(currentYear, currentMonth);
+
   monthYearDisplay.innerText = `${currentYear}年 ${currentMonth + 1}月`;
 
   let html = '';
@@ -211,6 +212,8 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const monthDay = `${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const lunarStr = getLunarDate(currentYear, currentMonth, d);
+
 
     const holiday = getHoliday(currentMonth, d);
     const memorial = memorialDays.find(m => m.monthDay === monthDay);
@@ -223,6 +226,10 @@ function renderCalendar() {
     if (holiday) {
       cellClass += ' holiday';
       extraHtml += `<div class="holiday-name">${holiday.icon}${holiday.name}</div>`;
+    }
+    // 在 extraHtml 中添加
+    if (lunarStr) {
+      extraHtml += `<div class="lunar-date">${lunarStr}</div>`;
     }
     if (memorial) {
       cellClass += ' memorial-day';
@@ -562,3 +569,19 @@ document.addEventListener('DOMContentLoaded', () => {
   initSpeechRecognition();
   checkTodaySpecial();
 });
+// 获取农历日期
+function getLunarDate(year, month, day) {
+  try {
+    const solar = Solar.fromDate(new Date(year, month, day));
+    const lunar = solar.getLunar();
+    const monthStr = lunar.getMonthInChinese();
+    const dayStr = lunar.getDayInChinese();
+    // 简化显示：只显示月日，如"五月初五"
+    if (dayStr === '初一') {
+      return monthStr;
+    }
+    return `${monthStr}${dayStr}`;
+  } catch (e) {
+    return '';
+  }
+}
