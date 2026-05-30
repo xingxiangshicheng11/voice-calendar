@@ -417,8 +417,29 @@ function parseVoiceCommand(text) {
     return;
   }
 
+  // 添加纪念日（农历）
+  if (text.includes('农历') && (text.includes('记住') || text.includes('添加') || text.includes('设置')) && (text.includes('生日') || text.includes('纪念日'))) {
+    const lunarInfo = parseLunarDateFromText(text);
+    if (lunarInfo) {
+      const suffix = text.includes('生日') ? '生日' : '纪念日';
+      const nameMatch = text.match(/(记住|添加|设置)(.*?)(?:生日|纪念日)/);
+      const name = nameMatch ? nameMatch[2].replace(/农历.*月.*/, '').trim() : suffix;
+      const icon = suffix === '生日' ? '🎂' : '💝';
+      addMemorialDay(name || suffix, lunarInfo.monthDay, icon);
+      return;
+    }
+  }
+
   // 删除事件
   if (text.includes('删除')) {
+    if (text.includes('农历')) {
+      const lunarInfo = parseLunarDateFromText(text);
+      if (lunarInfo) {
+        const toDelete = events.filter(e => e.dateStr === lunarInfo.dateStr);
+        toDelete.forEach(e => deleteEvent(e.id));
+        return;
+      }
+    }
     const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
     if (dateMatch) {
       const month = dateMatch[1].padStart(2, '0');
@@ -437,6 +458,28 @@ function parseVoiceCommand(text) {
     }
     speak("请说删除某月某日的事件");
     return;
+  }
+
+  // 查询农历日期
+  if ((text.includes('查询') || text.includes('有什么')) && text.includes('农历')) {
+    const lunarInfo = parseLunarDateFromText(text);
+    if (lunarInfo) {
+      const dayEvents = events.filter(e => e.dateStr === lunarInfo.dateStr);
+      const dayMemorial = memorialDays.find(m => m.monthDay === lunarInfo.monthDay);
+      const dayHoliday = solarHolidays[lunarInfo.monthDay];
+      const monthLabel = `${lunarInfo.monthDay.split('-')[0]}月${lunarInfo.monthDay.split('-')[1]}日`;
+      let parts = [];
+      if (dayHoliday) parts.push(`${dayHoliday.icon}${dayHoliday.name}`);
+      if (dayMemorial) parts.push(`${dayMemorial.icon}${dayMemorial.name}`);
+      if (dayEvents.length > 0) parts.push(`事件：${dayEvents.map(e => e.title).join('、')}`);
+      if (parts.length === 0) {
+        speak(`农历那天（${monthLabel}）没有安排`);
+      } else {
+        speak(`${monthLabel}有 ${parts.join('，')}`);
+      }
+      showFeedback(`📅 ${monthLabel}：${parts.length > 0 ? parts.join('，') : '无安排'}`);
+      return;
+    }
   }
 
   // 查询事件
@@ -493,7 +536,15 @@ function parseVoiceCommand(text) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     dateStr = formatDate(tomorrow);
-    title = text.replace(/明天|下午|上午|点|分/g, '').trim();
+    title = text.replace(/明天/, '').trim();
+  }
+  // 农历日期
+  else if (text.includes('农历')) {
+    const lunarInfo = parseLunarDateFromText(text);
+    if (lunarInfo) {
+      dateStr = lunarInfo.dateStr;
+      title = text.replace(/农历(?:的)?[正一二三四五六七八九十冬腊]+月初?[一二三四五六七八九十廿三十]+/, '').trim();
+    }
   }
   // X月X日
   else {
@@ -690,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bindEvents();
   initSpeechRecognition();
-  initDatePicker();  // 添加这一行
+  initDatePicker();
   checkTodaySpecial();
 });
 // 获取农历日期
@@ -702,10 +753,65 @@ function getLunarDate(year, month, day) {
     const dayStr = lunar.getDayInChinese();
     // 简化显示：只显示月日，如"五月初五"
     if (dayStr === '初一') {
-      return monthStr;
+      return `${monthStr}月`;
     }
-    return `${monthStr}${dayStr}`;
+    return `${monthStr}月${dayStr}`;
   } catch (e) {
     return '';
+  }
+}
+
+// ==================== 农历语音解析 ====================
+function cnNumToNumber(str) {
+  const digitMap = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+  if (str === '正') return 1;
+  if (str === '冬') return 11;
+  if (str === '腊') return 12;
+  if (digitMap[str] !== undefined) return digitMap[str];
+  if (str === '十') return 10;
+  if (str === '廿') return 20;
+  if (str === '三十') return 30;
+  if (str.startsWith('廿')) return 20 + (digitMap[str.slice(1)] || 0);
+  if (str.startsWith('十') && str.length === 2) return 10 + (digitMap[str.slice(1)] || 0);
+  if (str.includes('十') && str.length >= 2) {
+    const parts = str.split('十');
+    const tens = parts[0] ? (digitMap[parts[0]] || 0) : 0;
+    const ones = parts[1] ? (digitMap[parts[1]] || 0) : 0;
+    return tens * 10 + ones;
+  }
+  return null;
+}
+
+function parseLunarDateFromText(text) {
+  if (!text.includes('农历')) return null;
+  const match = text.match(/农历(?:的)?([正一二三四五六七八九十冬腊]+)月(初?[一二三四五六七八九十廿三十]+)/);
+  if (!match) return null;
+  const monthNum = cnNumToNumber(match[1]);
+  let dayRaw = match[2];
+  if (dayRaw.startsWith('初')) dayRaw = dayRaw.slice(1);
+  const dayNum = cnNumToNumber(dayRaw);
+  if (!monthNum || !dayNum) return null;
+  try {
+    const year = new Date().getFullYear();
+    const lunar = Lunar.fromYmd(year, monthNum, dayNum);
+    const solar = lunar.getSolar();
+    const solarDate = new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (solarDate < today) {
+      const lunarNext = Lunar.fromYmd(year + 1, monthNum, dayNum);
+      const solarNext = lunarNext.getSolar();
+      return {
+        dateStr: `${solarNext.getYear()}-${String(solarNext.getMonth()).padStart(2, '0')}-${String(solarNext.getDay()).padStart(2, '0')}`,
+        monthDay: `${String(solarNext.getMonth()).padStart(2, '0')}-${String(solarNext.getDay()).padStart(2, '0')}`,
+      };
+    }
+    return {
+      dateStr: `${solar.getYear()}-${String(solar.getMonth()).padStart(2, '0')}-${String(solar.getDay()).padStart(2, '0')}`,
+      monthDay: `${String(solar.getMonth()).padStart(2, '0')}-${String(solar.getDay()).padStart(2, '0')}`,
+    };
+  } catch (e) {
+    console.error('农历转换失败:', e);
+    return null;
   }
 }
