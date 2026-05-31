@@ -438,7 +438,7 @@ function buildSummaryData(startStr, endStr) {
   return { dateEvents, memorials, holidays };
 }
 
-function openSummaryModal(type) {
+function openSummaryModal(type, noSpeak) {
   const range = getDateRange(type);
   if (!range) return;
 
@@ -468,7 +468,7 @@ function openSummaryModal(type) {
         html += `<div class="summary-date-group"><div class="summary-date-header">📅 ${dateLabel} (周${weekday})</div>`;
       }
       const timeStr = ev.time ? ` ${ev.time}` : '';
-      html += `<div class="summary-event-item">${timeStr} ${escapeHtml(ev.title)}</div>`;
+      html += `<div class="summary-event-item">${timeStr} ${escapeHtml(ev.title)}${ev.notes ? `<div class="summary-note">📝 ${escapeHtml(ev.notes)}</div>` : ''}</div>`;
     });
     if (data.dateEvents.length > 0) html += '</div>';
 
@@ -483,7 +483,7 @@ function openSummaryModal(type) {
     if (data.memorials.length > 0) {
       html += '<div class="summary-date-group"><div class="summary-date-header">🎂 纪念日</div>';
       data.memorials.forEach(m => {
-        html += `<div class="summary-event-item">${m.icon} ${escapeHtml(m.name)} (${m.monthDay})</div>`;
+        html += `<div class="summary-event-item">${m.icon} ${escapeHtml(m.name)} (${m.monthDay})${m.notes ? `<div class="summary-note">📝 ${escapeHtml(m.notes)}</div>` : ''}</div>`;
       });
       html += '</div>';
     }
@@ -492,7 +492,7 @@ function openSummaryModal(type) {
   body.innerHTML = html;
   document.getElementById('summaryModal').style.display = 'flex';
 
-  speak('已为您生成事件清单，请查收');
+  if (!noSpeak) speak('已为您生成事件清单，请查收');
 }
 
 function speakSummaryContent() {
@@ -579,36 +579,7 @@ function renderCalendar() {
 
   document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
     cell.addEventListener('click', () => {
-      const date = cell.dataset.date;
-      // 解析年月日
-      const dateParts = date.split('-');
-      const year = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]);
-      const day = parseInt(dateParts[2]);
-      const monthDay = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-      // 获取当天所有内容
-      const dayEvents = events.filter(e => e.dateStr === date);
-      const dayMemorial = memorialDays.find(m => m.monthDay === monthDay);
-      const dayHoliday = solarHolidays[monthDay];
-
-      // 组合反馈消息
-      let messageParts = [];
-      if (dayHoliday) {
-        messageParts.push(`${dayHoliday.icon}${dayHoliday.name}`);
-      }
-      if (dayMemorial) {
-        messageParts.push(`${dayMemorial.icon}${dayMemorial.name}`);
-      }
-      if (dayEvents.length > 0) {
-        messageParts.push(`事件：${dayEvents.map(e => e.title).join('、')}`);
-      }
-
-      if (messageParts.length === 0) {
-        showFeedback(`${date} 暂无安排`);
-      } else {
-        showFeedback(`${date}：${messageParts.join('，')}`);
-      }
+      openSummaryModal('date:' + cell.dataset.date, true);
     });
   });
 }
@@ -647,12 +618,10 @@ function checkTodaySpecial() {
   if (todayMemorial) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayMemorial.name}！${todayMemorial.icon} 快乐！`);
-    speak(`祝您${todayMemorial.name}快乐！`);
     createFloatingEffect(todayMemorial.icon);
   } else if (todayHoliday) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayHoliday.name}！${todayHoliday.icon}`);
-    speak(`祝您${todayHoliday.name}快乐！`);
     createFloatingEffect(todayHoliday.icon);
     setTimeout(() => app.classList.remove('celebration-mode'), 5000);
   }
@@ -1165,11 +1134,13 @@ function parseVoiceCommand(text) {
 
   if (dateStr && title) {
     if (title === '' || title === '明天') title = "提醒事项";
-    title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
-    if (/纪念|生日/.test(title)) {
+    if (/纪念|生日/.test(text)) {
+      title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
+      title = title.replace(/[，,。]?(?:快乐|开心|幸福|喜悦|愉悦|美满|甜蜜)/, '').trim();
       const monthDay = dateStr.split('-').slice(1).join('-');
       addMemorialDay(title.replace(/^是/, '').trim(), monthDay, guessMemorialIcon(title));
     } else {
+      title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
       addEvent(title, dateStr);
     }
   } else if (text.includes('添加')) {
