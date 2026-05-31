@@ -83,6 +83,8 @@ voice-calendar/
 无需构建工具，直接编辑 HTML/CSS/JS 刷新即可。
 
 农历转换依赖 `lunar-javascript` 库（CDN 加载）。
+## 视频
+http://xhslink.com/o/6hh5rlQnY9q 
 
 ---
 
