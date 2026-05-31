@@ -1088,6 +1088,23 @@ function parseVoiceCommand(text) {
       }
     }
   }
+  // 上月/上个月/本月/这个月/下月/下个月 X号（中文数字）
+  if (!dateStr) {
+    const cnMonthMatch = text.match(/(上月|上个月|本月|这个月|下月|下个月)([一二三四五六七八九十廿三十]+)(?:日|号)?/);
+    if (cnMonthMatch) {
+      const today = new Date();
+      let y = today.getFullYear(), m = today.getMonth();
+      if (cnMonthMatch[1] === '上月' || cnMonthMatch[1] === '上个月') m -= 1;
+      else if (cnMonthMatch[1] === '下月' || cnMonthMatch[1] === '下个月') m += 1;
+      if (m < 0) { m = 11; y -= 1; }
+      if (m > 11) { m = 0; y += 1; }
+      const d = cnNumToNumber(cnMonthMatch[2]);
+      if (d && isValidDate(y, m + 1, d)) {
+        dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        title = text.replace(cnMonthMatch[0], '').trim();
+      }
+    }
+  }
   // 明天
   if (!dateStr && text.includes('明天')) {
     const tomorrow = new Date();
@@ -1542,6 +1559,21 @@ function parseDateFromText(text) {
     if (isValidDate(y, m + 1, d)) {
       const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       return { dateStr, rest: text.replace(/(?:上月|上个月|本月|这个月|下月|下个月)\d{1,2}(?:日|号)?/, '').replace(/^的/, '').trim() };
+    }
+  }
+  // 上月/上个月/本月/这个月/下月/下个月 X号（中文数字）
+  match = text.match(/(上月|上个月|本月|这个月|下月|下个月)([一二三四五六七八九十廿三十]+)(?:日|号)?/);
+  if (match) {
+    const today = new Date();
+    let y = today.getFullYear(), m = today.getMonth();
+    if (match[1] === '上月' || match[1] === '上个月') m -= 1;
+    else if (match[1] === '下月' || match[1] === '下个月') m += 1;
+    if (m < 0) { m = 11; y -= 1; }
+    if (m > 11) { m = 0; y += 1; }
+    const d = cnNumToNumber(match[2]);
+    if (d && isValidDate(y, m + 1, d)) {
+      const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      return { dateStr, rest: text.replace(match[0], '').replace(/^的/, '').trim() };
     }
   }
 
