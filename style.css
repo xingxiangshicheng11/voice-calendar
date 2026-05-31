@@ -711,6 +711,26 @@
     font-size: 0.88rem;
     color: #444;
     line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .summary-event-item > .summary-event-content {
+    flex: 1;
+  }
+
+  .summary-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 6px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+  .summary-edit-btn:hover {
+    background: #f0f0f0;
   }
 
   .summary-note {

@@ -130,10 +130,23 @@ function isValidDate(year, month, day) {
 
 let editingEventId = null;
 
+function openEventModalForAdd() {
+  editingEventId = null;
+  document.getElementById('editTitle').value = '';
+  document.getElementById('editDate').value = getTodayStr();
+  document.getElementById('editTime').value = '';
+  document.getElementById('editNotes').value = '';
+  document.querySelector('#eventModal h3').innerText = '📝 添加事件';
+  document.getElementById('saveEventBtn').innerText = '添加';
+  document.getElementById('eventModal').style.display = 'flex';
+}
+
 function openEventDetail(eventId) {
   const ev = events.find(e => e.id === eventId);
   if (!ev) return;
   editingEventId = eventId;
+  document.querySelector('#eventModal h3').innerText = '✏️ 编辑事件';
+  document.getElementById('saveEventBtn').innerText = '保存';
   document.getElementById('editTitle').value = ev.title;
   document.getElementById('editDate').value = ev.dateStr;
   document.getElementById('editTime').value = ev.time;
@@ -142,12 +155,25 @@ function openEventDetail(eventId) {
 }
 
 function saveEventDetail() {
+  const title = document.getElementById('editTitle').value.trim();
+  const dateStr = document.getElementById('editDate').value;
+  const time = document.getElementById('editTime').value;
+  const notes = document.getElementById('editNotes').value.trim();
+  if (!title) { showFeedback('请输入事件名称', true); return; }
+  if (!dateStr) { showFeedback('请选择日期', true); return; }
+
+  if (editingEventId === null) {
+    addEvent(title, dateStr, time, notes);
+    closeModal();
+    return;
+  }
+
   const ev = events.find(e => e.id === editingEventId);
   if (!ev) return;
-  ev.title = document.getElementById('editTitle').value.trim() || ev.title;
-  ev.dateStr = document.getElementById('editDate').value || ev.dateStr;
-  ev.time = document.getElementById('editTime').value;
-  ev.notes = document.getElementById('editNotes').value.trim();
+  ev.title = title || ev.title;
+  ev.dateStr = dateStr || ev.dateStr;
+  ev.time = time;
+  ev.notes = notes;
   saveEvents();
   renderCalendar();
   renderEventList();
@@ -468,7 +494,7 @@ function openSummaryModal(type, noSpeak) {
         html += `<div class="summary-date-group"><div class="summary-date-header">📅 ${dateLabel} (周${weekday})</div>`;
       }
       const timeStr = ev.time ? ` ${ev.time}` : '';
-      html += `<div class="summary-event-item">${timeStr} ${escapeHtml(ev.title)}${ev.notes ? `<div class="summary-note">📝 ${escapeHtml(ev.notes)}</div>` : ''}</div>`;
+      html += `<div class="summary-event-item"><div class="summary-event-content">${timeStr} ${escapeHtml(ev.title)}${ev.notes ? `<div class="summary-note">📝 ${escapeHtml(ev.notes)}</div>` : ''}</div><button class="summary-edit-btn" data-type="event" data-id="${ev.id}">✏️</button></div>`;
     });
     if (data.dateEvents.length > 0) html += '</div>';
 
@@ -483,13 +509,27 @@ function openSummaryModal(type, noSpeak) {
     if (data.memorials.length > 0) {
       html += '<div class="summary-date-group"><div class="summary-date-header">🎂 纪念日</div>';
       data.memorials.forEach(m => {
-        html += `<div class="summary-event-item">${m.icon} ${escapeHtml(m.name)} (${m.monthDay})${m.notes ? `<div class="summary-note">📝 ${escapeHtml(m.notes)}</div>` : ''}</div>`;
+        html += `<div class="summary-event-item"><div class="summary-event-content">${m.icon} ${escapeHtml(m.name)} (${m.monthDay})${m.notes ? `<div class="summary-note">📝 ${escapeHtml(m.notes)}</div>` : ''}</div><button class="summary-edit-btn" data-type="memorial" data-id="${m.id}">✏️</button></div>`;
       });
       html += '</div>';
     }
   }
 
   body.innerHTML = html;
+
+  body.querySelectorAll('.summary-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.id);
+      closeSummaryModal();
+      if (btn.dataset.type === 'memorial') {
+        openMemorialDetail(id);
+      } else {
+        openEventDetail(id);
+      }
+    });
+  });
+
   document.getElementById('summaryModal').style.display = 'flex';
 
   if (!noSpeak) speak('已为您生成事件清单，请查收');
@@ -1330,6 +1370,12 @@ function bindEvents() {
       if (dateText) dateText.innerText = '点击选择日期';
       selectedDateForMemorial = null;
     });
+  }
+
+  // 添加事件按钮
+  const addEventBtn = document.getElementById('addEventBtn');
+  if (addEventBtn) {
+    addEventBtn.addEventListener('click', openEventModalForAdd);
   }
 }
 
