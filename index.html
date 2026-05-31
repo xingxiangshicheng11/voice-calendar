@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语音日历助手 | 智能语音日历</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.0/lunar.js"></script>
+
+<body>
+  <div class="calendar-app">
+    <!-- 头部语音交互区 -->
+    <div class="voice-header">
+      <div class="title">
+        <h1>语音日历助手</h1>
+      </div>
+      <div class="voice-panel">
+        <button id="micButton" class="mic-btn">
+          🎤 开始录音
+        </button>
+        <button id="stopMicButton" class="mic-btn stop-btn" style="display: none;">
+          停止
+        </button>
+        <div id="voiceStatus" class="voice-status">点击麦克风开始</div>
+      </div>
+
+      <div class="main-dashboard">
+        <!-- 左侧日历区域 -->
+        <div class="calendar-view">
+          <div class="calendar-header">
+            <button id="prevMonthBtn" class="nav-btn">◀</button>
+            <h2 id="monthYearDisplay" class="month-year"></h2>
+            <button id="nextMonthBtn" class="nav-btn">▶</button>
+          </div>
+          <div class="weekdays">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+          </div>
+          <div id="calendarDays" class="calendar-days"></div>
+        </div>
+
+        <!-- 右侧事件面板 -->
+        <div class="events-panel">
+          <div class="section-title">事件列表</div>
+          <div id="eventList" class="event-list">
+            <div class="empty-tip">暂无事件，点击🎤说话添加</div>
+          </div>
+
+          <!-- 节日显示 -->
+          <div class="holiday-section">
+            <div class="section-title">公历节日</div>
+            <div id="holidayList" class="holiday-list">
+            </div>
+          </div>
+
+          <!-- 纪念日管理区域 -->
+          <div class="memorial-section">
+            <div class="section-title">纪念点滴</div>
+
+            <!-- 已有纪念日列表 -->
+            <div id="memorialList" class="memorial-list"></div>
+
+            <!-- 添加纪念日表单 - 新布局 -->
+            <div class="add-memorial-card">
+              <div class="form-row">
+                <div class="form-label">名称</div>
+                <input type="text" id="memorialName" placeholder="例：我的生日、恋爱纪念日" class="form-input name-input">
+              </div>
+
+              <div class="form-row">
+                <div class="form-label">日期</div>
+                <div class="date-select-wrapper">
+                  <div class="date-trigger" id="dateTrigger">
+                    <span class="date-icon">📅</span>
+                    <span id="selectedDateText" class="date-text">点击选择日期</span>
+                    <span class="date-arrow">▼</span>
+                  </div>
+                  <div id="datePickerPopup" class="date-picker-popup" style="display: none;">
+                    <div class="date-picker-header">
+                      <button id="pickerPrevMonth" class="picker-nav">◀</button>
+                      <span id="pickerYearMonth"></span>
+                      <button id="pickerNextMonth" class="picker-nav">▶</button>
+                    </div>
+                    <div class="date-picker-weekdays">
+                      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                    </div>
+                    <div id="pickerDays" class="date-picker-days"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-label">图标</div>
+                <div class="icon-grid-selector">
+                  <div class="icon-option-btn" data-icon="🎂" data-name="生日">🎂 生日</div>
+                  <div class="icon-option-btn" data-icon="🎉" data-name="庆祝">🎉 庆祝</div>
+                  <div class="icon-option-btn" data-icon="💕" data-name="纪念">💕 纪念</div>
+                  <div class="icon-option-btn" data-icon="🎈" data-name="快乐">🎈 快乐</div>
+                  <div class="icon-option-btn" data-icon="🌸" data-name="节日">🌸 节日</div>
+                  <div class="icon-option-btn" data-icon="🎄" data-name="圣诞">🎄 圣诞</div>
+                  <div class="icon-option-btn" data-icon="⭐" data-name="重要">⭐ 重要</div>
+                  <div class="icon-option-btn" data-icon="🎁" data-name="礼物">🎁 礼物</div>
+                  <div class="icon-option-btn" data-icon="🍰" data-name="蛋糕">🍰 蛋糕</div>
+                  <div class="icon-option-btn" data-icon="🧧" data-name="春节">🧧 春节</div>
+                  <div class="icon-option-btn" data-icon="🏆" data-name="成就">🏆 成就</div>
+                  <div class="icon-option-btn" data-icon="💍" data-name="订婚">💍 订婚</div>
+                </div>
+              </div>
+
+              <button id="addMemorialBtn" class="add-memorial-btn-new">
+                添加事件
+              </button>
+            </div>
+          </div>
+
+          <!-- 反馈区域 -->
+          <div class="feedback-area">
+            <div class="feedback-text" id="feedbackMsg">
+              你好！点击麦克风，说出 "明天下午3点开会"
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 事件详情弹窗 -->
+    <div id="eventModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+      <div class="modal-content">
+        <h3 style="margin-bottom:20px">✏️ 编辑事件</h3>
+        <div class="form-row">
+          <div class="form-label">名称</div>
+          <input type="text" id="editTitle" class="form-input" placeholder="事件标题">
+        </div>
+        <div class="form-row">
+          <div class="form-label">日期</div>
+          <input type="date" id="editDate" class="form-input" style="flex:1">
+        </div>
+        <div class="form-row">
+          <div class="form-label">时间</div>
+          <input type="time" id="editTime" class="form-input" style="flex:1">
+        </div>
+        <div class="form-row">
+          <div class="form-label">备注</div>
+          <textarea id="editNotes" class="form-input" rows="3" style="resize:vertical"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button id="saveEventBtn" class="add-memorial-btn-new" style="flex:1" onclick="saveEventDetail()">保存</button>
+          <button class="mic-btn stop-btn" style="flex:1" onclick="deleteEvent(editingEventId);closeModal()">删除</button>
+          <button class="mic-btn" style="flex:1;background:#bbb" onclick="closeModal()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
