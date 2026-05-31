@@ -238,6 +238,16 @@ function saveMemorialDays() {
   localStorage.setItem('memorialDays', JSON.stringify(memorialDays));
 }
 
+function triggerCelebrationIfToday(monthDay, name, icon) {
+  const today = new Date();
+  const todayMonthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  if (monthDay !== todayMonthDay) return;
+  const app = document.querySelector('.calendar-app');
+  if (!app) return;
+  app.classList.add('celebration-mode');
+  showFeedback(`🎉 今天是${name}！${icon} 快乐！`);
+}
+
 function addMemorialDay(name, monthDay, icon = "🎂", notes = '') {
   if (!name || !monthDay || !/^\d{2}-\d{2}$/.test(monthDay)) {
     showFeedback('日期格式应为 05-20', true);
@@ -247,6 +257,7 @@ function addMemorialDay(name, monthDay, icon = "🎂", notes = '') {
   saveMemorialDays();
   renderCalendar();
   renderMemorialList();
+  triggerCelebrationIfToday(monthDay, name, icon);
   speak(`已添加纪念日：${name}`);
   showFeedback(`✅ 已添加纪念日：${name}（${monthDay}）`);
 }
@@ -624,30 +635,6 @@ function renderCalendar() {
   });
 }
 
-// ==================== 庆祝特效 ====================
-function createFloatingEffect(icon) {
-  for (let i = 0; i < 10; i++) {
-    setTimeout(() => {
-      const emoji = document.createElement('div');
-      emoji.innerText = icon;
-      emoji.style.position = 'fixed';
-      emoji.style.left = Math.random() * window.innerWidth + 'px';
-      emoji.style.bottom = '0px';
-      emoji.style.fontSize = (20 + Math.random() * 20) + 'px';
-      emoji.style.zIndex = '9999';
-      emoji.style.pointerEvents = 'none';
-      emoji.style.transition = 'all 2s ease-out';
-      emoji.style.opacity = '0.8';
-      document.body.appendChild(emoji);
-      setTimeout(() => {
-        emoji.style.transform = 'translateY(-300px)';
-        emoji.style.opacity = '0';
-      }, 10);
-      setTimeout(() => emoji.remove(), 2000);
-    }, i * 150);
-  }
-}
-
 function checkTodaySpecial() {
   const today = new Date();
   const monthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -658,11 +645,9 @@ function checkTodaySpecial() {
   if (todayMemorial) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayMemorial.name}！${todayMemorial.icon} 快乐！`);
-    createFloatingEffect(todayMemorial.icon);
   } else if (todayHoliday) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayHoliday.name}！${todayHoliday.icon}`);
-    createFloatingEffect(todayHoliday.icon);
     setTimeout(() => app.classList.remove('celebration-mode'), 5000);
   }
 }
