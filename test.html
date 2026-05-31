@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语音日历 - 测试平台</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; height: 100vh; overflow: hidden; }
+  .test-layout { display: flex; height: 100vh; }
+  .test-panel { width: 480px; min-width: 480px; overflow-y: auto; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+  .test-header { padding: 16px 20px; border-bottom: 1px solid #eee; background: #fafafa; }
+  .test-header h2 { font-size: 1.1rem; color: #2c3e50; }
+  .test-header .ready { font-size: 0.8rem; color: #0cdcaf; }
+  .test-header .not-ready { font-size: 0.8rem; color: #e74c3c; }
+  .test-summary { display: flex; gap: 12px; margin-top: 8px; font-size: 0.85rem; }
+  .test-summary span { padding: 2px 10px; border-radius: 10px; background: #eee; }
+  .sum-pass { background: #d4edda !important; color: #155724; }
+  .sum-fail { background: #f8d7da !important; color: #721c24; }
+  .sum-total { background: #cce5ff !important; color: #004085; }
+  .sum-warn { background: #fff3cd !important; color: #856404; }
+  .test-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .test-actions button { padding: 4px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+  .btn-run-all { background: #0cdcaf; color: #fff; }
+  .btn-reset { background: #e74c3c; color: #fff; }
+  .btn-clear-results { background: #95a5a6; color: #fff; }
+  .test-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .test-group { margin-bottom: 16px; }
+  .test-group-title { font-size: 0.9rem; font-weight: 600; color: #2c3e50; margin-bottom: 8px; padding: 4px 8px; background: #eef2f7; border-radius: 6px; display: flex; justify-content: space-between; }
+  .test-group-title .group-summary { font-weight: 400; font-size: 0.8rem; color: #666; }
+  .test-case { display: flex; align-items: stretch; margin-bottom: 4px; border-radius: 6px; background: #fafafa; border: 1px solid #e8e8e8; transition: all 0.15s; }
+  .test-case:hover { border-color: #0cdcaf; }
+  .test-case .status { width: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; border-radius: 5px 0 0 5px; background: #f0f0f0; }
+  .test-case .status.pass { background: #d4edda; }
+  .test-case .status.fail { background: #f8d7da; }
+  .test-case .status.running { background: #fff3cd; }
+  .test-case .cmd { flex: 1; padding: 6px 10px; font-size: 0.82rem; color: #333; font-family: 'Courier New', monospace; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .test-case .result-detail { padding: 4px 10px 6px; font-size: 0.75rem; display: none; border-top: 1px solid #f0f0f0; grid-column: 1 / -1; }
+  .test-case .result-detail.show { display: block; }
+  .test-case .detail-pass { color: #155724; }
+  .test-case .detail-fail { color: #721c24; }
+  .test-case .run-btn { width: 50px; border: none; cursor: pointer; font-size: 0.7rem; border-radius: 0 5px 5px 0; background: #e8e8e8; color: #555; flex-shrink: 0; }
+  .test-case .run-btn:hover { background: #0cdcaf; color: #fff; }
+  .app-frame { flex: 1; border: none; }
+  .result-log { border-top: 1px solid #eee; padding: 8px 16px; max-height: 130px; overflow-y: auto; font-size: 0.78rem; color: #555; background: #fafafa; }
+  .result-log div { padding: 1px 0; border-bottom: 1px solid #f0f0f0; }
+  .result-log .log-pass { color: #155724; }
+  .result-log .log-fail { color: #721c24; }
+  .result-log .log-info { color: #004085; }
+  .result-log .log-warn { color: #856404; }
+  @media (max-width:900px) { .test-layout { flex-direction: column; } .test-panel { width: 100%; min-width: 0; max-height: 50vh; } }
+</style>
+</head>
+<body>
+<div class="test-layout">
+  <div class="test-panel">
+    <div class="test-header">
+      <h2>🧪 语音指令测试平台 <span id="readyStatus" class="not-ready">⏳ 加载中...</span></h2>
+      <div class="test-summary">
+        <span class="sum-total" id="totalCount">总计 0</span>
+        <span class="sum-pass" id="passCount">通过 0</span>
+        <span class="sum-fail" id="failCount">失败 0</span>
+        <span class="sum-warn" id="warnCount">警告 0</span>
+      </div>
+      <div class="test-actions">
+        <button class="btn-run-all" onclick="runAll()">▶ 全部运行</button>
+        <button class="btn-reset" onclick="resetData()">🗑 重置数据</button>
+        <button class="btn-clear-results" onclick="clearResults()">🧹 清空结果</button>
+      </div>
+    </div>
+    <div class="test-body" id="testBody"></div>
+    <div class="result-log" id="resultLog"><div class="log-info">等待测试...</div></div>
+  </div>
+  <iframe class="app-frame" id="appFrame" src="index.html"></iframe>
+</div>
+
+<script>
+// ==================== 测试用例 ====================
+const TESTS = [
+  {
+    group: '添加事件',
+    tests: [
+      { cmd: '明天下午3点开会', expect: '事件被添加' },
+      { cmd: '今天跑步', expect: '事件被添加' },
+      { cmd: '后天体检', expect: '事件被添加' },
+      { cmd: '昨天做总结', expect: '事件被添加' },
+      { cmd: '下周一交报告', expect: '事件被添加' },
+      { cmd: '上周五回顾会议', expect: '事件被添加' },
+      { cmd: '这周三开会', expect: '事件被添加' },
+      { cmd: '下个月5号去旅游', expect: '事件被添加' },
+      { cmd: '上个月10号写总结', expect: '事件被添加' },
+      { cmd: '去年5月5日回顾', expect: '事件被添加' },
+      { cmd: '今年9月1日开学', expect: '事件被添加' },
+      { cmd: '明年3月8号计划', expect: '事件被添加' },
+      { cmd: '5月20号考试', expect: '事件被添加' },
+      { cmd: '六月十一放假', expect: '事件被添加' },
+      { cmd: '四月3号踏青', expect: '事件被添加' },
+      { cmd: '5月三号放假', expect: '事件被添加' },
+      { cmd: '农历三月十五拜拜', expect: '事件被添加' },
+    ]
+  },
+  {
+    group: '添加纪念日',
+    tests: [
+      { cmd: '纪念5月20号结婚', expect: '纪念日被添加' },
+      { cmd: '明天纪念一下', expect: '纪念日被添加' },
+      { cmd: '今天纪念一下', expect: '纪念日被添加' },
+      { cmd: '后天纪念一下', expect: '纪念日被添加' },
+      { cmd: '农历三月二十八告白纪念日', expect: '纪念日被添加' },
+      { cmd: '记住农历三月十八生日', expect: '纪念日被添加' },
+      { cmd: '六月十一上岸了，纪念一下', expect: '纪念日被添加' },
+      { cmd: '明天生日', expect: '纪念日被添加' },
+      { cmd: '5月20号纪念结婚', expect: '纪念日被添加' },
+      { cmd: '下周三纪念一下', expect: '纪念日被添加' },
+    ]
+  },
+  {
+    group: '删除纪念日（依赖上方纪念日数据）',
+    dependsOn: [
+      { cmd: '纪念5月8号告白', _label: '📌 先添加：告白' },
+      { cmd: '纪念6月1号儿童节', _label: '📌 先添加：儿童节' },
+    ],
+    tests: [
+      { cmd: '删除告白纪念日', expect: '按名称删除' },
+      { cmd: '删除5月8号纪念日', expect: '按日期删除' },
+      { cmd: '删除6月1号儿童节', expect: '按日期+名称删除' },
+    ]
+  },
+  {
+    group: '修改（依赖上方数据）',
+    dependsOn: [
+      { cmd: '纪念5月15号测试修改', _label: '📌 纪念日' },
+      { cmd: '明天测试改期事件',     _label: '📌 事件' },
+    ],
+    tests: [
+      { cmd: '把5月15号的纪念日改到5月20号', expect: '纪念日日期修改' },
+      { cmd: '把明天的测试改期事件改到后天', expect: '事件日期修改' },
+    ]
+  },
+  {
+    group: '查询',
+    tests: [
+      { cmd: '今天有什么', expect: '汇总弹窗' },
+      { cmd: '五月八号有什么活动', expect: '查询当天' },
+      { cmd: '下周三有什么事', expect: '查询下周' },
+    ]
+  },
+];
+
+// ==================== 工具 ====================
+let logEl;
+function log(msg, type = 'info') {
+  if (!logEl) logEl = document.getElementById('resultLog');
+  const div = document.createElement('div');
+  div.className = 'log-' + type;
+  div.textContent = msg;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() { const el = document.getElementById('resultLog'); el.innerHTML = ''; }
+
+function statusId(gi, ti) { return 's-' + gi + '-' + ti; }
+function detailId(gi, ti) { return 'd-' + gi + '-' + ti; }
+
+// ==================== iframe 管理 ====================
+let appReady = false;
+const readyCallbacks = [];
+
+function onAppReady(cb) {
+  if (appReady) { cb(); return; }
+  readyCallbacks.push(cb);
+}
+
+function setAppReady(win) {
+  appReady = true;
+  document.getElementById('readyStatus').textContent = '✅ 就绪';
+  document.getElementById('readyStatus').className = 'ready';
+  installHooks(win);
+  readyCallbacks.forEach(cb => cb());
+  readyCallbacks.length = 0;
+  log('主页面已加载，可开始测试', 'info');
+}
+
+// 往 iframe 注入拦截脚本
+function installHooks(win) {
+  const code = `
+(function() {
+  if (window.__testHooked) return;
+  window.__testHooked = true;
+  window.__testLog = [];
+
+  var _fb = window.showFeedback;
+  window.showFeedback = function(msg, isErr) {
+    window.__testLog.push({ type: 'fb', msg: msg, isErr: isErr });
+    if (_fb) _fb.call(window, msg, isErr);
+  };
+
+  var _sp = window.speak;
+  window.speak = function(msg) {
+    window.__testLog.push({ type: 'speak', msg: msg });
+    if (_sp) _sp.call(window, msg);
+  };
+})();
+  `;
+  try {
+    const script = win.document.createElement('script');
+    script.textContent = code;
+    win.document.body.appendChild(script);
+  } catch(e) {
+    // cross-origin might fail
+  }
+}
+
+function getTestLog(win) {
+  try {
+    return win.__testLog || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+function clearTestLog(win) {
+  try { if (win.__testLog) win.__testLog.length = 0; } catch(e) {}
+}
+
+// ==================== 等待 iframe ====================
+function waitForReady(win, retries) {
+  if (retries <= 0) { log('等待超时', 'fail'); return false; }
+  try {
+    if (win.parseVoiceCommand && win.document && win.document.readyState === 'complete') {
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function startPolling(win) {
+  let retries = 100;
+  const iv = setInterval(() => {
+    try {
+      if (win.parseVoiceCommand && win.document && win.document.readyState === 'complete') {
+        clearInterval(iv);
+        setAppReady(win);
+      }
+    } catch(e) {}
+    if (--retries <= 0) { clearInterval(iv); log('iframe 加载超时, 请刷新页面', 'fail'); }
+  }, 200);
+}
+
+// ==================== 渲染测试 ====================
+function renderTests() {
+  const container = document.getElementById('testBody');
+  let html = '';
+  TESTS.forEach((group, gi) => {
+    const items = (group.dependsOn || []).concat(group.tests);
+    html += `<div class="test-group" data-group="${gi}">
+      <div class="test-group-title">
+        <span>${group.group}</span>
+        <span class="group-summary"><span class="g-pass">0</span>/<span class="g-total">${items.length}</span></span>
+      </div>`;
+    items.forEach((test, ti) => {
+      const isDep = ti < (group.dependsOn || []).length;
+      const label = test._label || '';
+      html += `<div class="test-case" data-group="${gi}" data-index="${ti}">
+        <div class="status" id="${statusId(gi, ti)}">⚪</div>
+        <div class="cmd" title="${(label || test.cmd)}">${label || test.cmd}</div>
+        <button class="run-btn" onclick="runTest(${gi}, ${ti})">运行</button>
+      </div>
+      <div class="result-detail" id="${detailId(gi, ti)}"></div>`;
+    });
+    html += `</div>`;
+  });
+  container.innerHTML = html;
+  updateSummary();
+}
+
+// ==================== 执行测试 ====================
+async function runTest(gi, ti) {
+  const frame = document.getElementById('appFrame');
+  let win;
+  try { win = frame.contentWindow; } catch(e) {}
+
+  if (!win || !win.parseVoiceCommand) {
+    log('页面未就绪，请稍等', 'warn');
+    return;
+  }
+
+  const groups = TESTS;
+  const group = groups[gi];
+  const items = (group.dependsOn || []).concat(group.tests);
+  const test = items[ti];
+
+  const st = document.getElementById(statusId(gi, ti));
+  const dt = document.getElementById(detailId(gi, ti));
+  if (!st) return;
+
+  st.textContent = '⏳';
+  st.className = 'status running';
+  if (dt) dt.classList.remove('show');
+
+  // 清除旧日志
+  clearTestLog(win);
+
+  try {
+    win.parseVoiceCommand(test.cmd);
+  } catch(e) {
+    log(`异常: ${test.cmd} → ${e.message}`, 'fail');
+    st.textContent = '❌';
+    st.className = 'status fail';
+    if (dt) { dt.textContent = '异常: ' + e.message; dt.className = 'result-detail show detail-fail'; }
+    updateSummary();
+    return;
+  }
+
+  await new Promise(r => setTimeout(r, 200));
+
+  const logs = getTestLog(win);
+  const resultMsgs = logs.map(l => l.msg).filter(Boolean);
+  const feedbackMsg = resultMsgs.length > 0 ? resultMsgs[resultMsgs.length - 1] : '';
+  const cmd = test.cmd;
+
+  let passed = false;
+  let resultText = feedbackMsg || '(无反馈)';
+  let detailText = '';
+
+  if (resultMsgs.length > 0) {
+    detailText = '反馈: ' + resultMsgs.join(' → ');
+  }
+
+  if (feedbackMsg.includes('已添加') || feedbackMsg.includes('已删除') || feedbackMsg.includes('已修改') || feedbackMsg.includes('✅') || feedbackMsg.includes('🗑️')) {
+    passed = true;
+  } else if (feedbackMsg.includes('汇总') || feedbackMsg.includes('有 ') || feedbackMsg.includes('没有安排')) {
+    passed = true;
+  } else if (feedbackMsg.includes('请说') || feedbackMsg.includes('没找') || feedbackMsg.includes('不存在') || feedbackMsg.startsWith('⚠️')) {
+    passed = false;
+  } else {
+    // 无明确反馈 → 失败
+    passed = false;
+    detailText = resultMsgs.length > 0 ? '反馈: ' + resultMsgs.join(' → ') : '⚠️ 无任何反馈，可能未命中任何逻辑';
+  }
+
+  if (passed) {
+    st.textContent = '✅';
+    st.className = 'status pass';
+    log(`[通过] ${cmd} → ${resultText}`, 'pass');
+  } else {
+    st.textContent = '❌';
+    st.className = 'status fail';
+    log(`[失败] ${cmd} → ${resultText}`, 'fail');
+  }
+
+  if (dt && detailText) {
+    dt.textContent = detailText;
+    dt.className = 'result-detail show ' + (passed ? 'detail-pass' : 'detail-fail');
+  }
+
+  updateSummary();
+}
+
+async function runAll() {
+  const frame = document.getElementById('appFrame');
+  let win;
+  try { win = frame.contentWindow; } catch(e) {}
+  if (!win || !win.parseVoiceCommand) { log('请等待页面就绪', 'warn'); return; }
+
+  clearLog();
+  log('开始运行所有测试...', 'info');
+
+  // 清除之前结果
+  clearResults();
+
+  // 重置数据（不清除缓存，避免重载）
+  try {
+    win.localStorage.removeItem('calendarEvents');
+    win.localStorage.removeItem('calendarMemorialDays');
+    win.events = [];
+    win.memorialDays = [];
+    if (win.renderCalendar) win.renderCalendar();
+    if (win.renderEventList) win.renderEventList();
+    if (win.renderMemorialList) win.renderMemorialList();
+    log('数据已重置', 'info');
+  } catch(e) { log('重置失败: ' + e.message, 'warn'); }
+
+  // 逐个运行
+  for (let gi = 0; gi < TESTS.length; gi++) {
+    const group = TESTS[gi];
+    const items = (group.dependsOn || []).concat(group.tests);
+    log(`--- ${group.group} ---`, 'info');
+    for (let ti = 0; ti < items.length; ti++) {
+      await runTest(gi, ti);
+      await new Promise(r => setTimeout(r, 80));
+    }
+  }
+
+  log('全部测试完成！', 'info');
+}
+
+function updateSummary() {
+  let pass = 0, fail = 0, warn = 0, total = 0;
+  TESTS.forEach((group, gi) => {
+    const items = (group.dependsOn || []).concat(group.tests);
+    let gPass = 0;
+    items.forEach((_, ti) => {
+      const el = document.getElementById(statusId(gi, ti));
+      if (!el) return;
+      total++;
+      if (el.textContent === '✅') { pass++; gPass++; }
+      else if (el.textContent === '❌') fail++;
+      else if (el.textContent === '⚠️') warn++;
+    });
+    const groupEl = document.querySelector(`[data-group="${gi}"] .group-summary`);
+    if (groupEl) {
+      groupEl.querySelector('.g-pass').textContent = gPass;
+    }
+  });
+  document.getElementById('totalCount').textContent = `总计 ${total}`;
+  document.getElementById('passCount').textContent = `通过 ${pass}`;
+  document.getElementById('failCount').textContent = `失败 ${fail}`;
+  document.getElementById('warnCount').textContent = `警告 ${warn}`;
+}
+
+function resetData() {
+  const frame = document.getElementById('appFrame');
+  let win;
+  try { win = frame.contentWindow; } catch(e) {}
+  if (!win) { log('页面未就绪', 'warn'); return; }
+  try {
+    win.localStorage.removeItem('calendarEvents');
+    win.localStorage.removeItem('calendarMemorialDays');
+    win.events = [];
+    win.memorialDays = [];
+    if (win.renderCalendar) win.renderCalendar();
+    if (win.renderEventList) win.renderEventList();
+    if (win.renderMemorialList) win.renderMemorialList();
+    log('数据已重置', 'info');
+  } catch(e) {
+    log('重置失败: ' + e.message, 'fail');
+  }
+}
+
+function clearResults() {
+  document.querySelectorAll('.test-case .status').forEach(el => {
+    el.textContent = '⚪';
+    el.className = 'status';
+  });
+  document.querySelectorAll('.result-detail').forEach(el => {
+    el.classList.remove('show');
+    el.textContent = '';
+  });
+  updateSummary();
+  clearLog();
+  log('结果已清空', 'info');
+}
+
+// ==================== 启动 ====================
+window.addEventListener('load', () => {
+  renderTests();
+
+  const frame = document.getElementById('appFrame');
+  if (frame.contentDocument && frame.contentDocument.readyState === 'complete') {
+    // 可能已经加载了
+    let win;
+    try { win = frame.contentWindow; } catch(e) {}
+    if (win && win.parseVoiceCommand) {
+      setAppReady(win);
+    } else {
+      startPolling(frame.contentWindow);
+    }
+  } else {
+    frame.addEventListener('load', () => {
+      startPolling(frame.contentWindow);
+    });
+  }
+
+  // 注入 hooks（多次尝试，因为 iframe 可能重新加载）
+  setInterval(() => {
+    if (appReady) return;
+    const w = document.getElementById('appFrame').contentWindow;
+    if (w && w.parseVoiceCommand && w.document && w.document.readyState === 'complete') {
+      setAppReady(w);
+    }
+  }, 500);
+});
+</script>
+</body>
+</html>

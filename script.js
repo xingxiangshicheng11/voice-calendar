@@ -233,6 +233,18 @@ function deleteMemorialDay(id) {
   showFeedback(`已删除纪念日`);
 }
 
+function updateMemorialDay(id, newMonthDay) {
+  const m = memorialDays.find(mem => mem.id === id);
+  if (!m) return;
+  const oldDate = m.monthDay;
+  m.monthDay = newMonthDay;
+  saveMemorialDays();
+  renderCalendar();
+  renderMemorialList();
+  speak(`已将${m.name}改期`);
+  showFeedback(`✅ 已修改：${m.name}（${oldDate} → ${newMonthDay}）`);
+}
+
 function renderMemorialList() {
   if (!memorialListContainer) return;
   if (memorialDays.length === 0) {
@@ -647,12 +659,10 @@ function checkTodaySpecial() {
   if (todayMemorial) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayMemorial.name}！${todayMemorial.icon} 快乐！`);
-    speak(`祝您${todayMemorial.name}快乐！`);
     createFloatingEffect(todayMemorial.icon);
   } else if (todayHoliday) {
     app.classList.add('celebration-mode');
     showFeedback(`🎉 今天是${todayHoliday.name}！${todayHoliday.icon}`);
-    speak(`祝您${todayHoliday.name}快乐！`);
     createFloatingEffect(todayHoliday.icon);
     setTimeout(() => app.classList.remove('celebration-mode'), 5000);
   }
@@ -853,53 +863,139 @@ function parseVoiceCommand(text) {
     return;
   }
 
-  // "X月Y日...纪念一下/纪念纪念"（如 "六月十一上岸了，纪念一下"）
-  const jinianMatch = text.match(/(\d{1,2}|[一二三四五六七八九十十一十二]+)月(\d{1,2}|[一二三四五六七八九十廿三十]+)(?:日|号)?(?:是)?(.+?)(?:纪念一下|纪念纪念|来纪念)/);
-  if (jinianMatch) {
-    let month = jinianMatch[1], day = jinianMatch[2];
-    let monthNum = /^\d+$/.test(month) ? parseInt(month, 10) : cnNumToNumber(month);
-    let dayNum = /^\d+$/.test(day) ? parseInt(day, 10) : cnNumToNumber(day);
-    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
-      const monthDay = `${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-      let name = jinianMatch[3].replace(/^[是的了]+/, '').replace(/[了，,。]+$/, '').trim();
-      if (!name) name = '纪念日';
+  // 修改事件（放在添加类逻辑之前，避免 "把5月8号的纪念日改到五月九" 被误判为添加）
+  const modifyMatch = text.match(/把(.+?)改为(.+)/) || text.match(/(.+?)改到(.+)/) || text.match(/(.+?)改成(.+)/);
+  if (modifyMatch) {
+    let sourcePart = modifyMatch[1].trim();
+    if (sourcePart.startsWith('把')) sourcePart = sourcePart.slice(1).trim();
+    const targetPart = modifyMatch[2].trim();
+
+    const sourceInfo = parseDateFromText(sourcePart);
+    const targetInfo = parseDateFromText(targetPart);
+
+    if (!targetInfo) {
+      speak('请说"把明天的会议改到4月3号"');
+      return;
+    }
+
+    const targetDateStr = targetInfo.dateStr;
+
+    const [y, m, d] = targetDateStr.split('-').map(Number);
+    if (!isValidDate(y, m, d)) {
+      speak('这个日期不存在，请重新确认');
+      return;
+    }
+
+    // 修改纪念日（在检查 sourceInfo 之前，因为可能只有名称没有日期）
+    if ((sourcePart.includes('纪念日') || sourcePart.includes('生日')) && targetInfo) {
+      let matched = null;
+      if (sourceInfo) {
+        const sourceMonthDay = sourceInfo.dateStr.slice(5);
+        matched = memorialDays.find(m => m.monthDay === sourceMonthDay);
+        if (!matched) {
+          const name = sourceInfo.rest.replace(/^[的]+/, '').replace(/纪念日|生日/, '').trim();
+          if (name) matched = memorialDays.find(m => m.name.includes(name));
+        }
+      }
+      if (!matched) {
+        const name = sourcePart.replace(/^[的]+/, '').replace(/纪念日|生日/, '').trim();
+        if (name) matched = memorialDays.find(m => m.name === name || m.name.includes(name));
+      }
+      if (matched) {
+        const newMonthDay = targetDateStr.slice(5);
+        updateMemorialDay(matched.id, newMonthDay);
+        return;
+      }
+    }
+
+    if (!sourceInfo) {
+      speak('请说"把明天的会议改到4月3号"');
+      return;
+    }
+
+    const sourceTitle = sourceInfo.rest;
+
+    if (!sourceTitle) {
+      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
+      if (dayEvents.length === 0) {
+        speak(`那天没有事件，试试说"把明天的吃饭改到4月3号"`);
+        return;
+      }
+      if (dayEvents.length > 1) {
+        speak(`那天有${dayEvents.length}个事件，请说明要改哪个`);
+        return;
+      }
+      updateEvent(dayEvents[0].id, targetDateStr);
+      return;
+    }
+
+    let matched = events.find(e => e.dateStr === sourceInfo.dateStr && e.title === sourceTitle);
+    if (!matched) {
+      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
+      if (dayEvents.length === 1) {
+        matched = dayEvents[0];
+      } else if (dayEvents.length > 1) {
+        speak(`那天有${dayEvents.length}个事件，请说清楚要改哪个`);
+        return;
+      } else {
+        speak(`没找到${sourceTitle}，试试说"把明天的吃饭改到4月3号"`);
+        return;
+      }
+    }
+    updateEvent(matched.id, targetDateStr);
+    return;
+  }
+
+  // 添加纪念日（统一路径）
+  if ((text.includes('纪念') || text.includes('生日')) && !(text.includes('删除') || text.includes('删掉'))) {
+    const dateInfo = parseDateFromText(text);
+    if (dateInfo) {
+      const monthDay = getMonthDayFromSolar(text, dateInfo.dateStr);
+      let name = dateInfo.rest
+        .replace(/记住|添加|设置|来|为我|帮我|纪念一下|纪念纪念|来纪念|纪念日|生日|纪念|记得/g, '')
+        .replace(/^[是的就了，,]+/, '')
+        .replace(/[，,。]+$/, '')
+        .trim();
+      if (!name) name = text.includes('生日') ? '生日' : '纪念日';
       addMemorialDay(name, monthDay, guessMemorialIcon(name));
       return;
     }
   }
 
-  // 添加纪念日（动词前缀）: "记住5月20日结婚纪念日"
-  const memorialMatch = text.match(/(记住|添加|设置)(?:(\d{4})年)?(\d{1,2})月(\d{1,2})(?:日|号)(?:是)?(.*?)(生日|纪念日)/);
-  if (memorialMatch) {
-    const month = memorialMatch[3].padStart(2, '0');
-    const day = memorialMatch[4].padStart(2, '0');
-    const suffix = memorialMatch[6];
-    const name = ((memorialMatch[5] || '') + suffix).trim();
-    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name));
-    return;
-  }
+  // 删除纪念日（统一路径）
+  if ((text.includes('删除') || text.includes('删掉')) && (text.includes('纪念') || text.includes('生日'))) {
+    let matched = null;
 
-  // 添加纪念日（农历）
-  if (text.includes('农历') && (text.includes('记住') || text.includes('添加') || text.includes('设置')) && (text.includes('生日') || text.includes('纪念日'))) {
-    const lunarInfo = parseLunarDateFromText(text);
-    if (lunarInfo) {
-      const suffix = text.includes('生日') ? '生日' : '纪念日';
-      const namePart = text.replace(/记住|添加|设置/, '').replace(/(?:\d{4}年)?农历(?:的)?[正一二三四五六七八九十冬腊]+月初?[一二三四五六七八九十廿三十]+/, '').trim();
-      const name = (namePart || suffix).replace(/^的/, '').trim();
-      addMemorialDay(name, lunarInfo.monthDay, guessMemorialIcon(name));
+    // 按名称匹配（不含数字日期，如 "删除告白纪念日"）
+    if (!matched) {
+      const nameMatch = text.match(/删除(.+?)(?:纪念日|生日)/);
+      if (nameMatch) {
+        const name = nameMatch[1].replace(/[的]+$/, '').trim();
+        matched = memorialDays.find(m => m.name === name);
+        if (!matched) matched = memorialDays.find(m => m.name.includes(name));
+      }
+    }
+
+    // 按日期匹配（含农历修正）
+    if (!matched) {
+      const dateInfo = parseDateFromText(text);
+      if (dateInfo) {
+        const monthDay = getMonthDayFromSolar(text, dateInfo.dateStr);
+        let nameHint = dateInfo.rest.replace(/删除|删掉|[，,、。！？\s]+/g, '').replace(/纪念日|生日/, '').trim();
+        if (nameHint) {
+          matched = memorialDays.find(m => m.monthDay === monthDay && m.name.includes(nameHint));
+        }
+        if (!matched) {
+          matched = memorialDays.find(m => m.monthDay === monthDay);
+        }
+      }
+    }
+
+    if (matched) {
+      deleteMemorialDay(matched.id);
       return;
     }
-  }
-
-  // 添加纪念日（日期前缀）: "7月1日是我的生日"、"5月20日结婚纪念日"
-  const dateFirst = text.match(/(\d{1,2})月(\d{1,2})(?:日|号)?(?:是)?(.*?)(生日|纪念日)/);
-  if (dateFirst) {
-    const month = dateFirst[1].padStart(2, '0');
-    const day = dateFirst[2].padStart(2, '0');
-    const suffix = dateFirst[4];
-    const name = ((dateFirst[3] || '') + suffix).replace(/^[是的]+/, '').trim();
-    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name));
-    return;
+    // 没找到纪念日 → 继续向下执行事件删除
   }
 
   // 删除事件
@@ -953,65 +1049,6 @@ function parseVoiceCommand(text) {
       showFeedback(`📅 ${monthLabel}：${parts.length > 0 ? parts.join('，') : '无安排'}`);
       return;
     }
-  }
-
-  // 修改事件
-  const modifyMatch = text.match(/把(.+?)改为(.+)/) || text.match(/(.+?)改到(.+)/) || text.match(/(.+?)改成(.+)/);
-  if (modifyMatch) {
-    let sourcePart = modifyMatch[1].trim();
-    if (sourcePart.startsWith('把')) sourcePart = sourcePart.slice(1).trim();
-    const targetPart = modifyMatch[2].trim();
-
-    const sourceInfo = parseDateFromText(sourcePart);
-    const targetInfo = parseDateFromText(targetPart);
-
-    if (!sourceInfo) {
-      speak('请说"把明天的会议改到4月3号"');
-      return;
-    }
-    if (!targetInfo) {
-      speak('请说"把明天的会议改到4月3号"');
-      return;
-    }
-
-    const sourceTitle = sourceInfo.rest;
-    const targetDateStr = targetInfo.dateStr;
-
-    const [y, m, d] = targetDateStr.split('-').map(Number);
-    if (!isValidDate(y, m, d)) {
-      speak('这个日期不存在，请重新确认');
-      return;
-    }
-
-    if (!sourceTitle) {
-      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
-      if (dayEvents.length === 0) {
-        speak(`那天没有事件，试试说"把明天的吃饭改到4月3号"`);
-        return;
-      }
-      if (dayEvents.length > 1) {
-        speak(`那天有${dayEvents.length}个事件，请说明要改哪个`);
-        return;
-      }
-      updateEvent(dayEvents[0].id, targetDateStr);
-      return;
-    }
-
-    let matched = events.find(e => e.dateStr === sourceInfo.dateStr && e.title === sourceTitle);
-    if (!matched) {
-      const dayEvents = events.filter(e => e.dateStr === sourceInfo.dateStr);
-      if (dayEvents.length === 1) {
-        matched = dayEvents[0];
-      } else if (dayEvents.length > 1) {
-        speak(`那天有${dayEvents.length}个事件，请说清楚要改哪个`);
-        return;
-      } else {
-        speak(`没找到${sourceTitle}，试试说"把明天的吃饭改到4月3号"`);
-        return;
-      }
-    }
-    updateEvent(matched.id, targetDateStr);
-    return;
   }
 
   // 添加事件
@@ -1165,13 +1202,7 @@ function parseVoiceCommand(text) {
 
   if (dateStr && title) {
     if (title === '' || title === '明天') title = "提醒事项";
-    title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
-    if (/纪念|生日/.test(title)) {
-      const monthDay = dateStr.split('-').slice(1).join('-');
-      addMemorialDay(title.replace(/^是/, '').trim(), monthDay, guessMemorialIcon(title));
-    } else {
-      addEvent(title, dateStr);
-    }
+    addEvent(title, dateStr);
   } else if (text.includes('添加')) {
     speak('请说"明天下午3点开会"或"下周一开会"');
   }
@@ -1417,6 +1448,25 @@ function cnNumToNumber(str) {
     return tens * 10 + ones;
   }
   return null;
+}
+
+function getMonthDayFromSolar(text, dateStr) {
+  if (!text.includes('农历')) return dateStr.slice(5);
+  const match = text.match(/(?:(\d{4})年)?农历(?:的)?([正一二三四五六七八九十冬腊]+)月(初?[一二三四五六七八九十廿三十]+)/);
+  if (!match) return dateStr.slice(5);
+  const monthNum = cnNumToNumber(match[2]);
+  let dayRaw = match[3];
+  if (dayRaw.startsWith('初')) dayRaw = dayRaw.slice(1);
+  const dayNum = cnNumToNumber(dayRaw);
+  if (!monthNum || !dayNum) return dateStr.slice(5);
+  try {
+    const year = new Date().getFullYear();
+    const lunar = Lunar.fromYmd(year, monthNum, dayNum);
+    const solar = lunar.getSolar();
+    return `${String(solar.getMonth()).padStart(2, '0')}-${String(solar.getDay()).padStart(2, '0')}`;
+  } catch (e) {
+    return dateStr.slice(5);
+  }
 }
 
 function parseLunarDateFromText(text) {
