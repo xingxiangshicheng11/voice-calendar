@@ -84,7 +84,7 @@ voice-calendar/
 
 农历转换依赖 `lunar-javascript` 库（CDN 加载）。
 ## 视频
-http://xhslink.com/o/6hh5rlQnY9q 
+ https://b23.tv/UYTCmsl
 
 ---
 
