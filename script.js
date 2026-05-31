@@ -832,7 +832,7 @@ function parseVoiceCommand(text) {
       const monthDay = `${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
       let name = jinianMatch[3].replace(/^[是的了]+/, '').replace(/[了，,。]+$/, '').trim();
       if (!name) name = '纪念日';
-      addMemorialDay(name, monthDay, guessMemorialIcon(name));
+      addMemorialDay(name, monthDay, guessMemorialIcon(name), text);
       return;
     }
   }
@@ -844,7 +844,7 @@ function parseVoiceCommand(text) {
     const day = memorialMatch[4].padStart(2, '0');
     const suffix = memorialMatch[6];
     const name = ((memorialMatch[5] || '') + suffix).trim();
-    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name));
+    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name), text);
     return;
   }
 
@@ -855,7 +855,7 @@ function parseVoiceCommand(text) {
       const suffix = text.includes('生日') ? '生日' : '纪念日';
       const namePart = text.replace(/记住|添加|设置/, '').replace(/(?:\d{4}年)?农历(?:的)?[正一二三四五六七八九十冬腊]+月初?[一二三四五六七八九十廿三十]+/, '').trim();
       const name = (namePart || suffix).replace(/^的/, '').trim();
-      addMemorialDay(name, lunarInfo.monthDay, guessMemorialIcon(name));
+      addMemorialDay(name, lunarInfo.monthDay, guessMemorialIcon(name), text);
       return;
     }
   }
@@ -867,7 +867,7 @@ function parseVoiceCommand(text) {
     const day = dateFirst[2].padStart(2, '0');
     const suffix = dateFirst[4];
     const name = ((dateFirst[3] || '') + suffix).replace(/^[是的]+/, '').trim();
-    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name));
+    addMemorialDay(name, `${month}-${day}`, guessMemorialIcon(name), text);
     return;
   }
 
@@ -988,39 +988,51 @@ function parseVoiceCommand(text) {
   let title = text;
 
   // 下周一等
-  const nextWeekMatch = text.match(/下(周一|周二|周三|周四|周五|周六|周日)/);
+  const nextWeekMatch = text.match(/下(周一|周二|周三|周四|周五|周六|周日|周天|[一二三四五六日天])/);
   if (nextWeekMatch) {
-    const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0 };
+    const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0, '周天': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '日': 0, '天': 0 };
     const today = new Date();
     let daysToAdd = weekMap[nextWeekMatch[1]] - today.getDay();
     if (daysToAdd <= 0) daysToAdd += 7;
     const nextDate = new Date(today);
     nextDate.setDate(today.getDate() + daysToAdd);
     dateStr = formatDate(nextDate);
-    title = text.replace(/下[周一二三四五六日]/, '').trim();
+    title = text.replace(/下[周一二三四五六日天]/, '').trim();
   }
   // 上周几
   else {
-    const lastWeekMatch = text.match(/上(周一|周二|周三|周四|周五|周六|周日)/);
+    const lastWeekMatch = text.match(/上(周一|周二|周三|周四|周五|周六|周日|周天|[一二三四五六日天])/);
     if (lastWeekMatch) {
-      const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0 };
+      const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0, '周天': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '日': 0, '天': 0 };
       const today = new Date();
       let diff = weekMap[lastWeekMatch[1]] - today.getDay();
       const d = new Date(today); d.setDate(today.getDate() + diff - 7);
       dateStr = formatDate(d);
-      title = text.replace(/上[周一二三四五六日]/, '').trim();
+      title = text.replace(/上[周一二三四五六日天]/, '').trim();
     }
   }
   // 这周几 / 本周几
   if (!dateStr) {
-    const thisWeekMatch = text.match(/(?:这周|本周)(周一|周二|周三|周四|周五|周六|周日)/);
+    const thisWeekMatch = text.match(/(?:这周|本周)(周一|周二|周三|周四|周五|周六|周日|[一二三四五六日天])/);
     if (thisWeekMatch) {
-      const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0 };
+      const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0, '周天': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '日': 0, '天': 0 };
       const today = new Date();
       const diff = weekMap[thisWeekMatch[1]] - today.getDay();
       const d = new Date(today); d.setDate(today.getDate() + diff);
       dateStr = formatDate(d);
-      title = text.replace(/(?:这周|本周)[周一二三四五六日]/, '').trim();
+      title = text.replace(/(?:这周|本周)[周一二三四五六日天]/, '').trim();
+    }
+  }
+  // 独立周X / 星期X（默认本周）
+  if (!dateStr) {
+    const swMatch = text.match(/^(周[一二三四五六日天]|星期[一二三四五六日天])/);
+    if (swMatch) {
+      const dayMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0, '周天': 0, '星期一': 1, '星期二': 2, '星期三': 3, '星期四': 4, '星期五': 5, '星期六': 6, '星期日': 0, '星期天': 0 };
+      const today = new Date();
+      const diff = dayMap[swMatch[1]] - today.getDay();
+      const d = new Date(today); d.setDate(today.getDate() + diff);
+      dateStr = formatDate(d);
+      title = text.replace(/^(?:周[一二三四五六日天]|星期[一二三四五六日天])/, '').trim();
     }
   }
   // 去年/今年/明年 X月X日
@@ -1138,10 +1150,10 @@ function parseVoiceCommand(text) {
       title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
       title = title.replace(/[，,。]?(?:快乐|开心|幸福|喜悦|愉悦|美满|甜蜜)/, '').trim();
       const monthDay = dateStr.split('-').slice(1).join('-');
-      addMemorialDay(title.replace(/^是/, '').trim(), monthDay, guessMemorialIcon(title));
+      addMemorialDay(title.replace(/^是/, '').trim(), monthDay, guessMemorialIcon(title), text);
     } else {
       title = title.replace(/[，,。]?(?:纪念一下|纪念纪念|来纪念)/, '').trim();
-      addEvent(title, dateStr);
+      addEvent(title, dateStr, '', text);
     }
   } else if (text.includes('添加')) {
     speak('请说"明天下午3点开会"或"下周一开会"');
